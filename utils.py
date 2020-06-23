@@ -1,9 +1,15 @@
 import numpy as np
+import matplotlib.pyplot as plt
+
 from PIL import Image
 from PIL import ImageFilter
-import matplotlib.pyplot as plt
+
+from scipy.ndimage import gaussian_filter
+
 import os
+
 from itertools import permutations
+
 from IPython.display import clear_output
 
 
@@ -13,17 +19,29 @@ def read_img(filename):
     '''Gets the array of an image file.'''
     return Image.open(filename)
 
-def split_img(im_shuffled, nb_lines, nb_cols):
+
+def split_img(im_shuffled, nb_lines, nb_cols, x_margin=0, y_margin=0):
     '''Returns a dictionary of all the pieces of the puzzle.
+    x_margin and y_margin permits to get smaller crops to take into account
+    the unclean puzzles. The final image will have 2*x_margin less pixels
+    wrt to x and 2*y_margin less pixels wrt to y.
+
     
     Args:
     - im_suffled (Image object)
     - nb_lines (int)
     - nb_cols (int)
+    - x_margin (positive int)
+    - y_margin (positive int)
 
     Returns:
     - cropped (dict)
     '''
+
+    assert x_margin >= 0, 'x_margin should be positive'
+    assert y_margin >= 0, 'y_margin should be positive'
+
+
     w, h = im_shuffled.size # w, h = width, height
     
     # For one piece of the puzzle
@@ -34,17 +52,17 @@ def split_img(im_shuffled, nb_lines, nb_cols):
     
     for i in range(nb_lines):
         for j in range(nb_cols):
-            left = i * w_piece
-            top = j * h_piece
-            right = (i + 1) * w_piece
-            bottom = (j + 1) * h_piece
+            left = i * w_piece + x_margin
+            top = j * h_piece + y_margin
+            right = (i + 1) * w_piece - x_margin
+            bottom = (j + 1) * h_piece - y_margin
             
             cropped[(i,j)] = im_shuffled.crop((left, top, right, bottom))
     
     return cropped
 
-def save_cropped(cropped):
-    '''Save as file all the pieces of the puzzle in the cropped directory.
+def save_cropped(cropped, filtered=False):
+    '''Save as files all the pieces of the puzzle in the cropped directory.
     The files are named accordingly to 'i-j.jpg' where i and j are the coordinates
     of the pieces of the puzzle in the PIL coods system.
 
@@ -54,10 +72,27 @@ def save_cropped(cropped):
     - None
     '''
     
-    for (i,j), im in cropped.items():
-        filename = f'{i}-{j}.jpg'
-        filepath = os.path.join('cropped', filename)
-        im.save(filepath)
+    if filtered:
+        for (i,j), im in cropped.items():
+            filename = f'{i}-{j}.jpg'
+            
+            # For the untouched image:
+            filepath = os.path.join('cropped', filename)
+            im.save(filepath)
+
+            # For the filtered image:
+            filepath_filtered = os.path.join('cropped_filtered', filename)
+            arr = gaussian_filter(np.array(im), sigma=1)
+            im_filtered = Image.fromarray(arr)
+            im_filtered.save(filepath_filtered)
+            
+    
+    else:
+        for (i,j), im in cropped.items():
+            filename = f'{i}-{j}.jpg'
+            filepath = os.path.join('cropped', filename)
+            im.save(filepath)
+    
     print('Images successfully saved.')
     return
 
