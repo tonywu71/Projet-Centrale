@@ -199,3 +199,21 @@ def create_config(map_config, nb_lines, nb_cols):
             current_im = get_concat_v(current_im, img_line)
     
     return current_im
+
+def brute_force(cropped):
+    ''' Brute force solve. VERY SLOW!!!
+    Saves all possibles configurations in the 'output' folder.
+    
+    Args:
+    - cropped {dict}
+
+    Returns:
+    - None
+    '''
+    for idx, map_config in enumerate(get_current_permutations(cropped)):
+        print(f'Current configuration: {idx}')
+        im_config = create_config(map_config, nb_lines, nb_cols)
+        filename = f'{idx}.jpg'
+        filepath = os.path.join('outputs', filename)
+        im_config.save(filepath)
+        clear_output(wait=True)
