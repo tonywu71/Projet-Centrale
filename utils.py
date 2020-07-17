@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import os
 from itertools import permutations
 from IPython.display import clear_output
-
+from copy import deepcopy
 
 # ---------------- Image utilities ----------------
 
@@ -131,7 +131,7 @@ def grad_y(im1, im2):
     return np.sum(np.square(arr1[:,0,:] - arr2[:,-1,:]))
 
 def mean_grad(cropped, nb_lines, nb_cols):
-    '''Returns the mean of the grad in both horizontally and vertically.'''
+    '''Returns the mean of the gradient both horizontally and vertically.'''
     res = 0
     for j in range(nb_lines):
         for i in range(nb_cols-1):  
@@ -200,12 +200,16 @@ def create_config(map_config, nb_lines, nb_cols):
     
     return current_im
 
-def brute_force(cropped):
+# ---------------- Brute force ----------------
+
+def brute_force(cropped, nb_lines, nb_cols)):
     ''' Brute force solve. VERY SLOW!!!
     Saves all possibles configurations in the 'output' folder.
     
     Args:
     - cropped {dict}
+    - nb_lines (int)
+    - nb_cols (int)
 
     Returns:
     - None
@@ -217,3 +221,22 @@ def brute_force(cropped):
         filepath = os.path.join('outputs', filename)
         im_config.save(filepath)
         clear_output(wait=True)
+
+
+# ---------------- Backtracking ----------------
+def get_next_location(nb_pieces, nb_lines, nb_cols):
+    '''Returns the next coords (i,j) of the piece according to the
+    completion strategy.
+
+    Completion strategy:
+        Adds a piece with increasing x and, if the x are the same,
+        with increasing y. In other terms, we complete the puzzle from
+        left to right and from top to bottom.'''
+
+    y = nb_pieces // nb_cols
+    x = nb_pieces % nb_cols
+
+    assert 0 <= x <= nb_cols, 'Error with the x axis!'
+    assert 0 <= y <= nb_lines, 'Error with the y axis!'
+
+    return (x, y)
