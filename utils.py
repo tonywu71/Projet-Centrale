@@ -109,7 +109,7 @@ def grad_x(im1, im2):
     return np.sum(np.square(arr1[-1,:,:] - arr2[0,:,:]))
 
 def grad_y(im1, im2):
-    '''Return the discrete horizontal gradient. im2 must be to the right of im1.
+    '''Return the discrete horizontal gradient. im2 must be below im1.
     Args:
     - im1 (Image object)
     - im2 (Image object)
@@ -129,7 +129,7 @@ def grad_y(im1, im2):
     arr1 = arr1[:min_x,:min_y,:]
     arr2 = arr2[:min_x,:min_y,:]
     
-    ## Computation of the horizontal gradient at the frontier
+    ## Computation of the vertical gradient at the frontier
     return np.sum(np.square(arr1[:,0,:] - arr2[:,-1,:]))
 
 def mean_grad(cropped, nb_lines, nb_cols):
@@ -138,6 +138,11 @@ def mean_grad(cropped, nb_lines, nb_cols):
     for j in range(nb_lines):
         for i in range(nb_cols-1):  
             res += grad_x(cropped[(i,j)], cropped[(i+1,j)])
+    
+    for i in range(nb_cols):
+        for j in range(nb_lines-1):  
+            res += grad_y(cropped[(i,j)], cropped[(i,j+1)])
+    
     return res / (nb_lines * nb_cols)
 
 def read_cropped_im(i, j):
@@ -228,19 +233,3 @@ def brute_force(cropped, nb_lines, nb_cols):
 
 
 # ---------------- Backtracking ----------------
-def get_next_location(nb_pieces, nb_lines, nb_cols):
-    '''Returns the next coords (i,j) of the piece according to the
-    completion strategy.
-
-    Completion strategy:
-        Adds a piece with increasing x and, if the x are the same,
-        with increasing y. In other terms, we complete the puzzle from
-        left to right and from top to bottom.'''
-
-    y = nb_pieces // nb_cols
-    x = nb_pieces % nb_cols
-
-    assert 0 <= x <= nb_cols, 'Error with the x axis!'
-    assert 0 <= y <= nb_lines, 'Error with the y axis!'
-
-    return (x, y)
