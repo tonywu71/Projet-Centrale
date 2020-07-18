@@ -63,6 +63,8 @@ def save_cropped(cropped):
 
 
 
+
+
 # ---------------- Operations on images ----------------
 
 def get_current_permutations(cropped):
@@ -200,9 +202,11 @@ def create_config(map_config, nb_lines, nb_cols):
     
     return current_im
 
+
+
 # ---------------- Brute force ----------------
 
-def brute_force(cropped, nb_lines, nb_cols)):
+def brute_force(cropped, nb_lines, nb_cols):
     ''' Brute force solve. VERY SLOW!!!
     Saves all possibles configurations in the 'output' folder.
     
