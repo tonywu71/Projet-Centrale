@@ -143,7 +143,7 @@ def mean_grad(cropped, nb_lines, nb_cols):
         for j in range(nb_lines-1):  
             res += grad_y(cropped[(i,j)], cropped[(i,j+1)])
     
-    return res / (nb_lines * nb_cols)
+    return res / 2
 
 def read_cropped_im(i, j):
     ''' Returns the given image loaded from the cropped folder
@@ -165,7 +165,7 @@ def get_concat_v(im1, im2):
     dst.paste(im2, (0, im1.height))
     return dst
 
-def create_config(map_config, nb_lines, nb_cols):
+def config_to_img(map_config, nb_lines, nb_cols):
     ''' Returns an image according to the given configuration.
 
     Strategy:
@@ -173,7 +173,7 @@ def create_config(map_config, nb_lines, nb_cols):
     2) Only then are we going to concatenate those lines vertically.
     
     Args:
-    - map_config (dict): dictionary mapping from the current configuration
+    - map_config ({(old_coords): (new_coords), ...}): dictionary mapping from the current configuration
         to the shuffled puzzle.
     - nb_lines (int)
     - nb_cols (int)
@@ -207,7 +207,47 @@ def create_config(map_config, nb_lines, nb_cols):
     
     return current_im
 
+def cropped_to_img(cropped, nb_lines, nb_cols):
+    ''' Returns an image according to the given configuration.
 
+    Strategy:
+    1) We'll start concatenate each line of the final configuration.
+    2) Only then are we going to concatenate those lines vertically.
+    
+    Args:
+    - cropped ({(x, y): Image Object, ...}): dictionary mapping from the current configuration
+        to the shuffled puzzle.
+    - nb_lines (int)
+    - nb_cols (int)
+
+    Returns:
+    - an Image object
+    '''
+    
+    ## Step 1:
+    list_lines = []
+    
+    for j in range(nb_lines): # We process line by line...
+        # We start from the left-most image.
+        current_im = cropped[(0,j)] # NB: The * allows to unpack the given tuple
+        
+        for i in range(1, nb_cols): # For each piece of the line...
+            new_piece = cropped[(i,j)] # we get the juxtaposed piece just right to the previous one
+            
+            current_im = get_concat_h(current_im, new_piece)
+        
+        list_lines.append(current_im)
+    
+    # Now we can vertically concatenate the obtained lines.
+    current_im = list_lines[0]
+    
+    for idx, img_line in enumerate(list_lines):
+        if idx == 0:
+            pass
+        else:
+            current_im = get_concat_v(current_im, img_line)
+    
+    return current_im
 
 # ---------------- Brute force ----------------
 
@@ -225,11 +265,261 @@ def brute_force(cropped, nb_lines, nb_cols):
     '''
     for idx, map_config in enumerate(get_current_permutations(cropped)):
         print(f'Current configuration: {idx}')
-        im_config = create_config(map_config, nb_lines, nb_cols)
+        im_config = config_to_img(map_config, nb_lines, nb_cols)
         filename = f'{idx}.jpg'
         filepath = os.path.join('outputs', filename)
         im_config.save(filepath)
         clear_output(wait=True)
 
 
+
+# ---------------- Manual solve ----------------
+def config_switcher(cropped, nb_lines, nb_cols, coords_1, coords_2):
+    '''Switch places for two pieces and return a new cropped dictionary.
+    
+    Args:
+    - cropped
+    - nb_lines
+    - nb_cols
+    - coords_1 (2-tuple): 1st piece to move
+    - coords_2 (2-tuple): 2nd piece to move
+
+    Returns:
+    - new_cropped
+    '''
+    
+    new_cropped = deepcopy(cropped)
+    new_cropped[coords_1], new_cropped[coords_2] = new_cropped[coords_2], new_cropped[coords_1]
+    
+    return new_cropped
+
+def config_switcher_helper(cropped, nb_lines, nb_cols, coords_1, coords_2):
+    '''Show on the same plot the previous image and the new one after having
+    the pieces switched places.
+    
+    Args:
+    - cropped
+    - nb_lines
+    - nb_cols
+    - coords_1 (2-tuple): 1st piece to move
+    - coords_2 (2-tuple): 2nd piece to move
+
+    Returns:
+    - new_cropped
+    '''
+    
+    plt.figure(figsize=(12, 10))
+    
+    plt.subplot(1, 2, 1)
+    old_image = cropped_to_img(cropped, nb_lines, nb_cols)
+    plt.imshow(old_image)
+    plt.title('Old image')
+    
+    plt.subplot(1, 2, 2)
+    new_cropped = config_switcher(cropped, nb_lines, nb_cols, coords_1, coords_2)
+    new_image = cropped_to_img(new_cropped, nb_lines, nb_cols)
+    plt.imshow(new_image)
+    plt.title('New image')
+    return
+
+
 # ---------------- Backtracking ----------------
+def get_next_location(nb_pieces, nb_lines, nb_cols):
+    '''Returns the next coords (i,j) of the piece according to the
+    completion strategy.
+
+    Completion strategy:
+        Adds a piece with increasing x and, if the x are the same,
+        with increasing y. In other terms, we complete the puzzle from
+        left to right and from top to bottom.'''
+    
+    # Get the previous coords (not trivial)
+    if nb_pieces % nb_cols == 0: # If we have a full line...
+        y = (nb_pieces // nb_cols) - 1
+        x = nb_cols - 1
+    else: #If the line isn't fully completed yet...
+        y = nb_pieces // nb_cols
+        x = (nb_pieces % nb_cols) - 1
+    
+    if x == nb_cols - 1: # If we are already at the end of a line...
+        x_new = 0
+        y_new = y + 1
+    else: # If there is still some room on the line...
+        x_new = x + 1
+        y_new = y
+    
+    print(f'Added new piece at: ({x_new}, {y_new})')
+    assert 0 <= x_new < nb_cols, 'Error with the x axis!'
+    assert 0 <= y_new < nb_lines, 'Error with the y axis!'
+    
+    return (x_new, y_new)
+
+def score(config, cropped, nb_lines, nb_cols):
+    '''Computes the score of the current config, which is in this case
+    the squared mean gradient with respect to x and y divided by the 
+    total number of pieces in the puzzle.'''
+
+    # In order to call the mean_grad function, we first
+    # have to generate a dictionary that has the same
+    # format as 'cropped': {(0, 0): <PIL.Image.Image>, ...}.
+
+    # Currently, 'config' has the shape {(new_coords): (old_coords), ...}.
+
+    # Next line allows to obtain the wanted dictionary.
+    new_cropped = get_config_mapped(config=config, cropped=cropped)
+    
+    score = mean_grad(new_cropped, nb_lines, nb_cols)**2 / 2
+    
+    return score
+
+def get_config_mapped(config, cropped):
+    '''Converts a config dictionary to the same format as a cropped dictionary.
+    Args:
+    - config ({(new_coords): (old_coords), ...}): current configuration (not necessarily 
+    completed)
+    - cropped ({(0, 0): <PIL.Image.Image>, ...}): dictionary of every single piece 
+    of the puzzle
+    '''
+    
+    return {new_coords: cropped[old_coords] for new_coords, old_coords in config.items()}
+
+def partial_score(partial_config, cropped, nb_lines, nb_cols):
+    '''Computes the score of a partial configuration.'''
+    
+    res = 0
+    config_mapped = get_config_mapped(config=partial_config, cropped=cropped)
+    
+    # Gradient wrt to x:
+    for j in range(nb_lines):
+        for i in range(nb_cols-1):
+            if (i,j) in config_mapped.keys() and (i+1,j) in config_mapped.keys():
+                res += grad_x(config_mapped[(i,j)], config_mapped[(i+1,j)])
+    
+    # Gradient wrt to y:
+    for i in range(nb_cols):
+        for j in range(nb_lines-1):
+            if (i,j) in config_mapped.keys() and (i,j+1) in config_mapped.keys():
+                res += grad_y(config_mapped[(i,j)], config_mapped[(i,j+1)])
+    
+    return (res/2)**2 / (nb_lines * nb_cols)
+
+def solve_backtracking(cropped, nb_lines, nb_cols):
+    '''
+    Applies backtracking for building the puzzle.
+    
+    In what follows, 'config' is a dictionary with the
+    shape {(x, y): (i, j), ...}, ie that links the current
+    configuration to the suffled one.
+    
+    Args:
+    - cropped ({(0, 0): <PIL.Image.Image>, ...}): dictionary of
+    every single piece of the puzzle
+    '''
+    
+    bestScore = np.inf
+    bestSol = None
+    
+    nb_pieces_total = len(cropped)
+    config = {}
+    
+    # ------ Auxiliary functions ------
+    
+    
+    def is_terminal(config):
+        '''Returns True if we have generated a complete
+        solution for the puzzle.'''
+        return len(config) == nb_pieces_total
+    
+    def is_promising(partial_config, bestScore):
+        '''Returns True iif the gradient score of the partial configuration
+        is lower or equal to bestScore.'''
+        current_score = partial_score(partial_config, cropped, nb_lines, nb_cols)
+        print(f'current_score: {current_score}')
+        return current_score < bestScore
+    
+    def children(config, cropped, bestScore):
+        '''Generator for a list of configurations that have one supplementary piece
+        when compared to 'config'.
+        
+        Args:
+        - config ({new_coords: old_coords, ...})
+        - cropped ({(i,j): Image object, ...})
+             
+        Completion strategy:
+        Adds a piece with increasing x and, if the x are the same,
+        with increasing y. In other terms, we complete the puzzle from
+        left to right and from top to bottom.'''
+        
+        # We get the location (i, j) of the next piece.
+        nb_pieces = len(config)
+        next_location = get_next_location(nb_pieces=nb_pieces, nb_lines=nb_lines, nb_cols=nb_cols)
+        
+        # config.values() contains the old coords that have already been used
+        # cropped.keys() contains all the possible coords
+        remaining_pieces = [coords for coords in cropped.keys() if coords not in config.values()]
+        
+        for next_piece in remaining_pieces:
+            config_copy = deepcopy(config)
+            
+            assert next_location not in config_copy.keys(), 'issue when completing the current config'
+            
+            config_copy[next_location] = next_piece
+            # print(f'config_copy = {config_copy}\n')
+            
+            if is_promising(config_copy, bestScore):
+                print('Promising branch.\n')
+                yield config_copy
+            else:
+                print('Not promising branch.\n')
+                continue # get directly to next iteration
+        
+    
+    def backtracking(config, cropped, bestScore, bestSol):
+        '''
+        Backtracking for building the puzzle (recursive).
+
+        Args:
+        - config: dictionary giving the mapping from the current
+        configuration to a given configuration of the puzzle
+        (the dictionary doesn't have to contain alle the puzzle pieces
+        since it's being built on the moment)
+        - cropped
+        - bestScore (float)
+        - bestSol (dict)
+
+        Returns:
+        - new_bestScore
+        - new_bestSol
+        '''
+        
+        
+        if is_terminal(config):
+            # print('Viewing current configuration:')
+            # current_img = create_config(config, nb_lines, nb_cols)
+            # plt.figure(figsize = (5,2))
+            # plt.imshow(current_img)
+            
+            # pdb.set_trace()            
+            
+            print('is_terminal')
+            current_score = score(config, cropped, nb_lines, nb_cols)
+            
+            # clear_output(wait=True)
+            print(f'current_score: {current_score}\n')
+            
+            if current_score < bestScore:
+                new_bestScore = current_score
+                new_bestSol = deepcopy(config)
+                
+                print(f'New bestScore: {new_bestScore}\n')
+                
+        else:
+            print(f'not terminal, current nb of pieces: {len(config)}')
+            for new_config in children(config, cropped, bestScore):
+                new_bestScore, new_bestSol = backtracking(new_config, cropped, bestScore, bestSol)
+        
+        return new_bestScore, new_bestSol
+    
+    
+    # ------ Main ------
+    return backtracking(config, cropped, bestScore, bestSol)
