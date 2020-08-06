@@ -43,6 +43,50 @@ def split_img(im_shuffled, nb_lines, nb_cols):
     
     return cropped
 
+def display_image(img, nb_lines, nb_cols, title='', figsize=(5,6)):
+    '''Show the image with custom ticks for both x and y axis, making piece 
+    identification easier.
+    
+    Args:
+    - img (Image object)
+    - nb_lines (int)
+    - nb_cols (int)
+    Returns:
+    - None
+    '''
+
+    plt.figure(figsize=figsize)
+
+    xticks_location = (img.width / nb_cols) / 2 + np.linspace(0, img.width, nb_cols+1)
+    yticks_location = (img.height / nb_lines) / 2 + np.linspace(0, img.height, nb_lines+1)
+    plt.xticks(xticks_location, range(nb_cols))
+    plt.yticks(yticks_location, range(nb_lines))
+    if title:
+        plt.title(title)
+
+    plt.imshow(img)
+    return
+
+
+def display_cropped(cropped, nb_lines, nb_cols, title='', figsize=(5,6)):
+    '''Show the image with custom ticks for both x and y axis, making piece 
+    identification easier.
+    
+    Args:
+    - cropped ({key: image})
+    - nb_lines (int)
+    - nb_cols (int)
+    Returns:
+    - None
+    '''
+
+    img = cropped_to_img(cropped, nb_lines, nb_cols)
+    display_image(img, nb_lines, nb_cols, title='', figsize=figsize)
+    return
+
+
+
+
 def save_cropped(cropped):
     '''Save as file all the pieces of the puzzle in the cropped directory.
     The files are named accordingly to 'i-j.jpg' where i and j are the coordinates
@@ -309,15 +353,25 @@ def config_switcher_helper(cropped, nb_lines, nb_cols, coords_1, coords_2):
     '''
     
     plt.figure(figsize=(12, 10))
-    
+
+
+
     plt.subplot(1, 2, 1)
     old_image = cropped_to_img(cropped, nb_lines, nb_cols)
+
+    xticks_location = (old_image.width / nb_cols) / 2 + np.linspace(0, old_image.width, nb_cols+1)
+    yticks_location = (old_image.height / nb_lines) / 2 + np.linspace(0, old_image.height, nb_lines+1)
+    
+    plt.xticks(xticks_location, range(nb_cols))
+    plt.yticks(yticks_location, range(nb_lines))
     plt.imshow(old_image)
     plt.title('Old image')
     
     plt.subplot(1, 2, 2)
     new_cropped = config_switcher(cropped, nb_lines, nb_cols, coords_1, coords_2)
     new_image = cropped_to_img(new_cropped, nb_lines, nb_cols)
+    plt.xticks(xticks_location, range(nb_cols))
+    plt.yticks(yticks_location, range(nb_lines))
     plt.imshow(new_image)
     plt.title('New image')
     return
