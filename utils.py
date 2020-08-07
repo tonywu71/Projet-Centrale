@@ -13,13 +13,15 @@ def read_img(filename):
     '''Gets the array of an image file.'''
     return Image.open(filename)
 
-def split_img(im_shuffled, nb_lines, nb_cols):
+def split_img(im_shuffled, nb_lines, nb_cols, margin=(0, 0)):
     '''Returns a dictionary of all the pieces of the puzzle.
+    Use optional argument margin in order to have more smooth cuts.
     
     Args:
     - im_suffled (Image object)
     - nb_lines (int)
     - nb_cols (int)
+    - margin ((x_margin, y_margi ))
 
     Returns:
     - cropped (dict)
@@ -27,17 +29,19 @@ def split_img(im_shuffled, nb_lines, nb_cols):
     w, h = im_shuffled.size # w, h = width, height
     
     # For one piece of the puzzle
-    w_piece = w / nb_cols
-    h_piece = h / nb_lines
+    w_piece = (w / nb_cols)
+    h_piece = (h / nb_lines)
     
     cropped = {}
+
+    x_margin, y_margin = margin
     
     for i in range(nb_lines):
         for j in range(nb_cols):
-            left = i * w_piece
-            top = j * h_piece
-            right = (i + 1) * w_piece
-            bottom = (j + 1) * h_piece
+            left = i * w_piece + x_margin / 2
+            top = j * h_piece + y_margin / 2
+            right = (i + 1) * w_piece - x_margin / 2
+            bottom = (j + 1) * h_piece -  y_margin / 2
             
             cropped[(i,j)] = im_shuffled.crop((left, top, right, bottom))
     
