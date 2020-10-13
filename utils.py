@@ -21,7 +21,7 @@ def split_img(im_shuffled, nb_lines, nb_cols, margin=(0, 0)):
     - im_suffled (Image object)
     - nb_lines (int)
     - nb_cols (int)
-    - margin ((x_margin, y_margi ))
+    - margin ((x_margin, y_margin))
 
     Returns:
     - cropped (dict)
@@ -120,7 +120,7 @@ def get_current_permutations(cropped):
     configuration to the shuffled puzzle.
     
     Args:
-    - cropped (Image object)
+    - cropped ({key: image})
 
     Returns:
     - generator object
@@ -296,6 +296,106 @@ def cropped_to_img(cropped, nb_lines, nb_cols):
             current_im = get_concat_v(current_im, img_line)
     
     return current_im
+
+def get_grad_orientation(im_1, im_2, orientation):
+    '''Returns the gradient considering im_1 as the reference image and im_2
+    concatenated right next to im_1 with the given orientation. The gradient is
+    calculated at the limit.
+    
+    Orientation must be in ['N', 'E', 'W', 'S'].
+    
+    Args:
+    - im_1 (Image object)
+    - im_2 (Image object)
+    - orientation (str)
+
+    Returns:
+    - grad (float)
+    
+    '''
+    
+    assert orientation in ['N', 'E', 'W', 'S'], 'Given input for orientation not understood.'
+    
+    if orientation == 'E':
+        return grad_y(im_1, im_2)
+    elif orientation == 'W':
+        return grad_y(im_2, im_1)
+    elif orientation == 'S':
+        return grad_x(im_1, im_2)
+    elif orientation == 'N':
+        return grad_x(im_2, im_1)
+
+def getBestConfig(cropped, nb_lines, nb_cols):
+    '''Returns a dictionary that contains another dictionary that gives
+    the ID of the piece with the best gradient according to the current direction
+    ('N' for North, 'E' for East, 'W' for West and 'S' for South) which is used
+    as the key. Moreover, one can access the gradient value using the 'grad_N'
+    (or grad_E, etc...) key.
+    
+    Args:
+    - cropped {key: image}
+    - nb_lines (int)
+    - nb_cols (int)
+
+    Returns:
+    - dicBestConfig {curr_piece: {'N': (x_best_N, y_best_N), ..., 'grad_N': min_grad_N, ...}}
+    '''
+    
+    dicBestConfig = {}
+    orientations = ['N', 'E', 'W', 'S']
+    
+    for curr_piece_ID in cropped.keys(): # For every piece of the puzzle...
+        # Creating an empty dict for the current piece.
+        dicBestConfig[curr_piece_ID] = {}
+        
+        for orientation in orientations: # For every single of the 4 orientation...
+            # Preparing the key for storing the gradient.
+            grad_orientation = 'grad_' + orientation
+            
+            # Variables to store the best candidate.
+            min_grad = np.inf
+            best_piece_ID = None
+            
+            for piece_ID in cropped.keys(): # For every piece of the puzzle...
+                if piece_ID == curr_piece_ID: # We skip duplicates...
+                    continue
+                else: # If we have two different pieces...
+                    curr_grad = get_grad_orientation(
+                        im_1=cropped[curr_piece_ID], 
+                        im_2=cropped[piece_ID], 
+                        orientation=orientation)
+                    if curr_grad < min_grad: # If it's a better candidate...
+                        # Overwriting the previous variables.
+                        min_grad = curr_grad
+                        best_piece_ID = piece_ID
+            
+            dicBestConfig[curr_piece_ID][orientation] = best_piece_ID
+            dicBestConfig[curr_piece_ID][grad_orientation] = min_grad
+    
+    return dicBestConfig
+
+def getOrderedConfigs(dicBestConfig, orientation, reverse=False):
+    '''Returns a sorted list of elements from dicBestConfig.values().
+    
+    Args:
+    - dicBestConfig (dict)
+    - orientation (str)
+    - reverse (bool)
+
+    Returns:
+    - ordered_list [(value from dicBestConfig.values()) ordered by the
+    gradient according to the given orientation]
+    '''
+
+    orientations = ['N', 'E', 'W', 'S']
+    assert orientation in ['N', 'E', 'W', 'S'], 'Given input for orientation not understood.'
+    
+    grad_orientation_key = 'grad_' + orientation
+    return sorted(dicBestConfig.items(), key=lambda x: x[1][grad_orientation_key], reverse=reverse)
+
+
+
+
 
 # ---------------- Brute force ----------------
 
