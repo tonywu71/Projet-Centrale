@@ -6,6 +6,7 @@ import os
 from itertools import permutations
 from IPython.display import clear_output
 from copy import deepcopy
+from collections import namedtuple
 
 # ---------------- Image utilities ----------------
 
@@ -374,7 +375,7 @@ def getBestConfig(cropped, nb_lines, nb_cols):
     
     return dicBestConfig
 
-def getOrderedConfigs(dicBestConfig, orientation, reverse=False):
+def getOrderedConfigsByConfig(dicBestConfig, orientation, reverse=False):
     '''Returns a sorted list of elements from dicBestConfig.values().
     
     Args:
@@ -392,6 +393,35 @@ def getOrderedConfigs(dicBestConfig, orientation, reverse=False):
     
     grad_orientation_key = 'grad_' + orientation
     return sorted(dicBestConfig.items(), key=lambda x: x[1][grad_orientation_key], reverse=reverse)
+
+def getOrderedConfigs(dicBestConfig, reverse=False):
+    """Returns a sorted list of elements from dicBestConfig.values().
+    We don't consider orientation in this function.
+    
+    Args:
+    - dicBestConfig (dict)
+    - reverse (bool)
+
+    Returns:
+    - ordered_list (list): list of named tuples of the form 
+        (start, end, orientation, score)
+    """
+
+    list_temp = []
+    list_orientations = ['N', 'E', 'W', 'S']
+
+    # Creating a namedtuple for convenience:
+    Config = namedtuple('Config', ['start', 'end', 'orientation', 'score'])
+
+    for start, val in dicBestConfig.items():
+        for orientation in list_orientations:
+            end = val[orientation]
+            score = val['grad_' + orientation]
+
+            list_temp.append(Config(start, end, orientation, score))
+    
+    ordered_list = sorted(list_temp, key=lambda x: x.score, reverse=reverse)
+    return ordered_list
 
 
 
