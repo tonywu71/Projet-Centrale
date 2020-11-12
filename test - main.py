@@ -1,10 +1,9 @@
 import numpy as np
+from utils import *
 
-def main(FitMatrix):          #On lui fournit une matrice n*n*4 avec le fitting de chaque sous-imageimage par rapport à chaque autre, dans chaque direction
+def main(ListFit, n):          #On lui fournit une matrice n*n*4 avec le fitting de chaque sous-imageimage par rapport à chaque autre, dans chaque direction
 
-    n = len(FitMatrix)
-
-    ListeFit = OrderFit(FitMatrix)   #OrderFit renvoie une liste de 4-uplet (image1, image2, direction(N/E/S/W), fit) des couples d'images avec le meilleur fitting
+    # ListFit = OrderFit(FitMatrix)   #OrderFit renvoie une liste de 4-uplet (image1, image2, direction(N/E/S/W), fit) des couples d'images avec le meilleur fitting
 
     L = [np.array([(i,j)]) for i in range(n) for j in range(n)]       # la liste des clusters de blocs rassemblés, chaque cluster étant représenté par une liste des coordonnées de chaque bloque qui le forme. On l'initialise naturellement comme étant une liste de n**2 clusters de taille 1 chacun
 
@@ -43,7 +42,7 @@ def  MergeClusters(C1, C2, pos1, pos2, dir):  # the clusters, the position (in t
     n1, m1 = np.shape(C1)
     n2, m2 = np.shape(C2)
 
-    D_dir = {N : [1, 0], E : [0, 1], S : [-1, 0], W : [0, -1]}
+    D_dir = dict(N=[1, 0], E=[0, 1], S=[-1, 0], W=[0, -1])
 
     locmatch = pos2 + D_dir[dir]        # position of the matched piece from C1 in C2 once it will be added
     space_expanse = [[n1 - pos1[0] - 1, m1 - pos1[1] - 1], [-pos1[0], -pos1[1]]]   # fitting C1 in C2 is equivalent to checking that two opposites corner of C1 fit in C2, we therefore compute the positions of these opposite corners in C2 and extend C2 if the positions of the corners are out of C2's bounds
